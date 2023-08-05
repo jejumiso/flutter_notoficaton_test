@@ -1,6 +1,10 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
-void main() {
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  FirebaseApp app = await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -27,7 +31,7 @@ class MyApp extends StatelessWidget {
         // restart instead.
         //
         // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
+        // tested with just a hot reload. 
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
@@ -55,6 +59,45 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+
+
+FirebaseMessaging _messaging = FirebaseMessaging.instance;
+
+   @override
+  void initState () {
+
+    _initNotification();
+    _getToken();
+    super.initState ();
+  }
+
+    Future<void> _getToken() async {
+    try {
+      _messaging.requestPermission();
+      print('fcm token ');
+      String? token2 = await _messaging.getToken();
+      print('fcm token ${token2}');
+      String? token = await _messaging.getToken(
+            vapidKey:
+                'BEWqwVB56u5ycO50PROBu55tZ4q4uofPVBYSdqgZ8Krm2mUITCPMuQFKtuX6brK9cJWRncGCZHl0eiDsGPJtAsE') //프로젝트개요=>설정=>클라우딩메시징=>웹구성=>웹푸시인증서
+        .then((value) async {
+    });
+      print('fcm token ${token}');
+      
+    } catch (e) {}
+  }
+
+    void _initNotification() {
+    _messaging.requestPermission(
+  alert: true,
+      badge: true,
+      provisional: false,
+      sound: true,
+);
+    }
+
+
+
   int _counter = 0;
 
   void _incrementCounter() {
