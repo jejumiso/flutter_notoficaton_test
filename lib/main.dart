@@ -75,14 +75,14 @@ FirebaseMessaging _messaging = FirebaseMessaging.instance;
     try {
       _messaging.requestPermission();
       print('fcm token ');
-      String? token2 = await _messaging.getToken();
-      print('fcm token ${token2}');
-      String? token = await _messaging.getToken(
-            vapidKey:
-                'BEWqwVB56u5ycO50PROBu55tZ4q4uofPVBYSdqgZ8Krm2mUITCPMuQFKtuX6brK9cJWRncGCZHl0eiDsGPJtAsE') //프로젝트개요=>설정=>클라우딩메시징=>웹구성=>웹푸시인증서
-        .then((value) async {
-    });
+      String? token = await _messaging.getToken();
       print('fcm token ${token}');
+      //   String? token = await _messaging.getToken(
+      //         vapidKey:
+      //             'BEWqwVB56u5ycO50PROBu55tZ4q4uofPVBYSdqgZ8Krm2mUITCPMuQFKtuX6brK9cJWRncGCZHl0eiDsGPJtAsE') //프로젝트개요=>설정=>클라우딩메시징=>웹구성=>웹푸시인증서
+      //     .then((value) async {
+      // });
+      //   print('fcm token ${token}');
       
     } catch (e) {}
   }
