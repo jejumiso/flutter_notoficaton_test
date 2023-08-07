@@ -1,168 +1,110 @@
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/material.dart';
 
-void main() async{
+//이 소스로 테스트를 해보시고 만약 실기기에서 토큰값을 가져온다면 아래의 문제로 예상됩니다.
+//토큰값을 가져오기 위해서는 권한승인이 필요합니다. 
+//권한은 앱이 처음 실행될 때 물어보고 이 때 승인을 누릅니다.
+//그러나, 내부적으로 getToken()으로 가져오는 타이밍에서는 이 승인 값이 업데이트가 안된 타이밍인 것 같습니다.
+//그러면 왜,시뮬레이터에서는 토큰값이 찍히냐면 시뮬레이터에서는 fcm을 받기 힘들기 때문에 권한승인을 무시하고 토큰값을 발행해 주는 것 같습니다.
+//그러므로 아래와 같은 방법으로 해결 된 것으로 생각합니다.
+//방법은 requestPermission()을 해준 후에 곧바로 getToken()을 하는 것이 아니라 FirebaseMessaging.instance.getNotificationSettings()로 상태를 가져오는 것입니다.
+//FirebaseMessaging.instance.getNotificationSettings()는 FirebaseMessaging에서 제공하는 기능 중 하나로 현재 앱에 알림 권한 및 설정 상태를 가져오는 역할을 합니다.
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  FirebaseApp app = await Firebase.initializeApp();
-  runApp(const MyApp());
+  await Firebase.initializeApp();
+
+  runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
+class MyApp extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a blue toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload. 
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
+  _MyAppState createState() => _MyAppState();
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class _MyAppState extends State<MyApp> {
+  String _token = 'Waiting for token...';
+  AuthorizationStatus _authorizationStatus = AuthorizationStatus.notDetermined;
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-
-
-FirebaseMessaging _messaging = FirebaseMessaging.instance;
-
-   @override
-  void initState () {
-
-    _initNotification();
-    _getToken();
-    super.initState ();
+  void initState() {
+    super.initState();
+    _checkPermissionAndToken();
   }
 
-    Future<void> _getToken() async {
-    try {
-      _messaging.requestPermission();
-      print('fcm token ');
-      String? token = await _messaging.getToken();
-      print('fcm token ${token}');
-      //   String? token = await _messaging.getToken(
-      //         vapidKey:
-      //             'BEWqwVB56u5ycO50PROBu55tZ4q4uofPVBYSdqgZ8Krm2mUITCPMuQFKtuX6brK9cJWRncGCZHl0eiDsGPJtAsE') //프로젝트개요=>설정=>클라우딩메시징=>웹구성=>웹푸시인증서
-      //     .then((value) async {
-      // });
-      //   print('fcm token ${token}');
-      
-    } catch (e) {}
-  }
-
-    void _initNotification() {
-    _messaging.requestPermission(
-  alert: true,
+  Future<void> _checkPermissionAndToken() async {
+    await FirebaseMessaging.instance.requestPermission(
+      alert: true,
       badge: true,
-      provisional: false,
       sound: true,
-);
-    }
+    );
 
-
-
-  int _counter = 0;
-
-  void _incrementCounter() {
+//이 부분에서 getNotificationSettings()으로 가져오지 않으면 settings의 결과가 계속 notDetermind로 남게됩니다.
+//아마도 화면상에서 권한을 승인해도 다시 getNotificationSettings()을 통해서 값을 가져오지 않으면 업데이트가 되지앟은 듯합니다.
+    var settings = await FirebaseMessaging.instance.getNotificationSettings();
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _authorizationStatus = settings.authorizationStatus;
+
+    });
+
+    if (_authorizationStatus == AuthorizationStatus.authorized) {
+      await _getToken();
+    }
+  }
+
+  Future<void> _getToken() async {
+    String? token = await FirebaseMessaging.instance.getToken();
+    setState(() {
+      _token = token!;
+    });
+    print('FCM Token: $_token');
+  }
+
+  void _refreshAuthorizationStatus() async {
+    var settings = await FirebaseMessaging.instance.getNotificationSettings();
+    setState(() {
+      _authorizationStatus = settings.authorizationStatus;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+    return MaterialApp(
+      title: 'FCM Permission and Token Example',
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('FCM Permission and Token Example'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Text(
+                'Authorization Status:',
+                style: TextStyle(fontSize: 20),
+              ),
+              SizedBox(height: 10),
+              Text(
+                _authorizationStatus.toString(),
+                style: TextStyle(fontSize: 16),
+              ),
+              SizedBox(height: 20),
+              Text(
+                'FCM Token:',
+                style: TextStyle(fontSize: 20),
+              ),
+              SizedBox(height: 10),
+              Text(
+                _token,
+                style: TextStyle(fontSize: 16),
+              ),
+  
+             
+            ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
