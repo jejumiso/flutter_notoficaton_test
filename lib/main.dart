@@ -61,13 +61,6 @@ class _MyAppState extends State<MyApp> {
     print('FCM Token: $_token');
   }
 
-  void _refreshAuthorizationStatus() async {
-    var settings = await FirebaseMessaging.instance.getNotificationSettings();
-    setState(() {
-      _authorizationStatus = settings.authorizationStatus;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
